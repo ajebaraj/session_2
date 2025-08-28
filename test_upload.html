@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .upload-area { border: 2px dashed #ccc; padding: 20px; margin: 20px 0; }
+        .result { margin: 20px 0; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>File Upload Test</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <p>Drag and drop files here or click to browse</p>
+        <input type="file" id="fileInput">
+        <button onclick="document.getElementById('fileInput').click()">Choose File</button>
+    </div>
+    
+    <div class="result" id="result"></div>
+    
+    <script>
+        console.log('Test page loaded');
+        
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const result = document.getElementById('result');
+        
+        // Test file input change
+        fileInput.addEventListener('change', function(e) {
+            console.log('File input changed');
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                console.log('File selected:', file.name);
+                uploadFile(file);
+            }
+        });
+        
+        // Test drag and drop
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            console.log('Drag over');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            console.log('File dropped');
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                console.log('Dropped file:', file.name);
+                uploadFile(file);
+            }
+        });
+        
+        async function uploadFile(file) {
+            console.log('Starting upload for:', file.name);
+            result.innerHTML = 'Uploading...';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (response.ok) {
+                    result.innerHTML = `
+                        <h3>Upload Successful!</h3>
+                        <p>Filename: ${data.filename}</p>
+                        <p>Size: ${data.size}</p>
+                        <p>Type: ${data.type}</p>
+                    `;
+                } else {
+                    result.innerHTML = `<h3>Upload Failed:</h3><p>${data.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                result.innerHTML = `<h3>Error:</h3><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

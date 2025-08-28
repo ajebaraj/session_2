@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Glass Upload Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"/>
+  <style>
+    :root {
+      --bg-light: #f5f5f5;
+      --bg-dark: #121212;
+      --text-light: #222;
+      --text-dark: #eee;
+      --accent: linear-gradient(135deg, #6a11cb, #2575fc);
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-dark);
+      display: flex;
+      min-height: 100vh;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.light {
+      background: var(--bg-light);
+      color: var(--text-light);
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 95%;
+      max-width: 1100px;
+    }
+    .card {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(15px);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-3px); }
+    h2 { margin-bottom: 15px; }
+    .animal-options { display: flex; gap: 10px; }
+    .animal-option {
+      padding: 8px 14px;
+      border: 1px solid #666;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .animal-option.active {
+      background: #2575fc;
+      color: #fff;
+    }
+    .dropzone {
+      border: 2px dashed #666;
+      padding: 30px;
+      text-align: center;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .dropzone:hover { border-color: #2575fc; }
+    .file-item { margin-top: 10px; }
+    .bar { height: 6px; background: #444; border-radius: 6px; margin-top: 4px; }
+    .bar div { height: 100%; width: 0%; background: #4cafef; border-radius: 6px; }
+    pre { margin-top: 10px; padding: 10px; border-radius: 6px; overflow: auto; }
+    img.preview { max-width: 100%; margin-top: 10px; border-radius: 6px; }
+    /* Toasts */
+    .toast-container { position: fixed; bottom: 1rem; right: 1rem; z-index: 9999; }
+    .toast {
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-top: 8px;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    /* Theme toggle */
+    .toggle-btn {
+      position: absolute; top: 1rem; right: 1rem;
+      font-size: 1.5rem; cursor: pointer;
+    }
+    /* Upload history */
+    .history-list { list-style: none; padding: 0; margin: 0; }
+    .history-list li {
+      padding: 6px 10px; margin-bottom: 6px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.9rem;
+    }
+    .history-list a { color: #4cafef; text-decoration: none; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="toggle-btn" id="themeToggle">☀️</div>
+
+  <div class="dashboard">
+    <!-- Animal Selector -->
+    <div class="card">
+      <h2>Select an Animal</h2>
+      <div class="animal-options">
+        <div class="animal-option" data-animal="cat">🐱 Cat</div>
+        <div class="animal-option" data-animal="dog">🐶 Dog</div>
+        <div class="animal-option" data-animal="elephant">🐘 Elephant</div>
+      </div>
+      <div id="animalPreview" style="margin-top:10px;">Pick an animal...</div>
+    </div>
+
+    <!-- File Upload -->
+    <div class="card">
+      <h2>Upload Files</h2>
+      <div id="dropzone" class="dropzone">
+        Drag & drop or click to choose
+        <input id="fileInput" type="file" style="display:none"/>
+      </div>
+      <div id="uploadList"></div>
+      <h3>Result:</h3>
+      <pre id="output"></pre>
+      <h3>Preview:</h3>
+      <div id="preview"></div>
+    </div>
+
+    <!-- Upload History -->
+    <div class="card" style="grid-column: span 2;">
+      <h2>Upload History</h2>
+      <ul class="history-list" id="history"></ul>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script>
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const uploadList = document.getElementById("uploadList");
+    const output = document.getElementById("output");
+    const preview = document.getElementById("preview");
+    const animalPreview = document.getElementById("animalPreview");
+    const toastContainer = document.getElementById("toastContainer");
+    const themeToggle = document.getElementById("themeToggle");
+    const historyList = document.getElementById("history");
+    let history = [];
+
+    // Theme toggle
+    function setTheme(light) {
+      if (light) { document.body.classList.add("light"); themeToggle.textContent="🌙"; localStorage.setItem("theme","light"); }
+      else { document.body.classList.remove("light"); themeToggle.textContent="☀️"; localStorage.setItem("theme","dark"); }
+    }
+    themeToggle.onclick = ()=> setTheme(!document.body.classList.contains("light"));
+    if (localStorage.getItem("theme")==="light") setTheme(true);
+
+    // Toast helper
+    function showToast(msg) {
+      const toast=document.createElement("div");
+      toast.className="toast";
+      toast.textContent=msg;
+      toastContainer.appendChild(toast);
+      setTimeout(()=>toast.remove(),3000);
+    }
+
+    // Animal selector
+    document.querySelectorAll(".animal-option").forEach(opt=>{
+      opt.addEventListener("click",()=>{
+        document.querySelectorAll(".animal-option").forEach(o=>o.classList.remove("active"));
+        opt.classList.add("active");
+        const animal=opt.dataset.animal;
+        animalPreview.innerHTML=`<img src="/static/images/${animal}.jpg" class="preview">`;
+        showToast(`${animal} selected 🐾`);
+      });
+    });
+
+    // Upload
+    dropzone.addEventListener("click",()=> fileInput.click());
+    dropzone.addEventListener("dragover",e=>{ e.preventDefault(); dropzone.style.borderColor="#4cafef"; });
+    dropzone.addEventListener("dragleave",()=> dropzone.style.borderColor="#666");
+    dropzone.addEventListener("drop",e=>{
+      e.preventDefault(); dropzone.style.borderColor="#666";
+      [...e.dataTransfer.files].forEach(f=>uploadFile(f));
+    });
+    fileInput.addEventListener("change",()=> {
+      [...fileInput.files].forEach(f=>uploadFile(f));
+    });
+
+    function uploadFile(file){
+      const item=document.createElement("div");
+      item.className="file-item";
+      item.innerHTML=`<strong>${file.name}</strong><div class="bar"><div></div></div>`;
+      uploadList.appendChild(item);
+      const bar=item.querySelector(".bar div");
+        // Hide animal preview when a file is uploaded
+      animalPreview.innerHTML = "";
+      document.querySelectorAll(".animal-option").forEach(o => o.classList.remove("active"));
+
+      const form=new FormData();
+      form.append("file",file);
+
+      const xhr=new XMLHttpRequest();
+      xhr.open("POST","/upload");
+      xhr.upload.onprogress=(e)=>{ if(e.lengthComputable){ bar.style.width=(e.loaded/e.total*100)+"%"; }};
+      xhr.onload=()=>{
+        try {
+          const data=JSON.parse(xhr.responseText);
+          output.textContent=JSON.stringify(data,null,2);
+          showToast(data.message || "Upload complete ✅");
+
+          // Update preview
+          preview.innerHTML="";
+          if(data.type.startsWith("image/")){
+            const img=document.createElement("img");
+            img.src="/uploads/"+data.filename;
+            img.className="preview";
+            preview.appendChild(img);
+          } else if(data.type.startsWith("text/") || data.filename.endsWith(".py")){
+            fetch("/uploads/"+data.filename).then(r=>r.text()).then(t=>{
+              preview.innerHTML=`<pre><code class="language-js">${t.split("\n").slice(0,15).join("\n")}</code></pre>`;
+              Prism.highlightAll();
+            });
+          } else {
+            preview.textContent="📄 "+data.type;
+          }
+
+          // Add to history
+          history.unshift(data);
+          if(history.length>5) history.pop();
+          renderHistory();
+        } catch(e){
+          showToast("Upload failed ❌");
+        }
+      };
+      xhr.onerror=()=>showToast("Network error ❌");
+      xhr.send(form);
+    }
+
+    function renderHistory(){
+      historyList.innerHTML="";
+      history.forEach(f=>{
+        const li=document.createElement("li");
+        li.innerHTML=`${f.filename} (${f.size}) <a href="/uploads/${f.filename}" target="_blank">Download</a>`;
+        historyList.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>
