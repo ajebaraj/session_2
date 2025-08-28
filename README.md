@@ -24,6 +24,7 @@ Session_2/
 ├── templates/
 │   └── index.html        # Frontend HTML/CSS/JS
 ├── static/
+│   ├── styles.css        # Global stylesheet (theme + components)
 │   └── images/           # Animal images (cat.jpg, dog.jpg, elephant.jpg)
 ├── uploads/              # Uploaded files storage
 ├── requirements.txt      # Flask dependencies
@@ -139,22 +140,42 @@ python app.py
 
 ### Modifying Upload Behavior
 - Edit the `/upload` endpoint in `app.py`
-- Modify the `handleFileUpload` function in `templates/index.html`
+- Modify the upload logic in `templates/index.html`
 
 ### Styling Changes
-- All styles are in the `<style>` section of `templates/index.html`
-- Uses CSS Grid for layout and CSS custom properties for theming
+- All styles are now in `static/styles.css`.
+- The template links the stylesheet via `{{ url_for('static', filename='styles.css') }}`.
+- Avoid inline styles; use classes defined in the stylesheet.
 
-## File Upload Security
+## Style Guide (UI-only)
 
-- File type validation (configurable in `ALLOWED_EXTENSIONS`)
-- Secure filename handling with `secure_filename()`
-- Maximum file size limit (16MB by default)
-- Error handling for invalid uploads
+### Theme tokens (CSS variables)
+- Backgrounds: `--bg-light`, `--bg-dark`
+- Text colors: `--text-light`, `--text-dark`
+- Accent: `--accent` (gradient)
 
-## Error Handling
+Usage: override in `:root` or add a `.light`/default dark scheme.
 
-- Displays user-friendly error messages
-- Handles network errors gracefully
-- Shows loading states during upload
-- Validates file types and sizes
+### Layout
+- Container grid: `.dashboard` (2 columns, responsive to 1 column under 768px)
+- Span full width: `.span-2`
+
+### Components
+- Card: `.card`
+- Animal options row: `.animal-options`
+- Animal option pill: `.animal-option` and state `.animal-option.active`
+- Drop area: `.dropzone`
+- Upload progress: `.bar > div`
+- Preview image: `img.preview`
+- History list: `.history-list` and `.history-list li`
+- Toasts: `.toast-container`, `.toast`
+- Theme toggle button: `.toggle-btn`
+
+### States and accessibility
+- Focus-visible styles inherit browser defaults; maintain sufficient contrast (AA).
+- Keep interactive targets ≥ 40px height for touch.
+
+### Do/Don’t
+- Do reuse `.card` for any new sections.
+- Do not rename element IDs or change form field names (preserves functionality).
+- Do not add inline styles; extend the stylesheet instead.
